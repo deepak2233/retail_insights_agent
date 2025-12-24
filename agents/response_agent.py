@@ -106,25 +106,44 @@ Please provide a clear, business-focused answer to the original question based o
             }
     
     def _format_results(self, query_result: Dict[str, Any]) -> str:
-        """Format query results for LLM consumption"""
+        """Format query results for LLM consumption - optimized for token limits"""
         df = query_result.get("dataframe")
         
         if df is None or df.empty:
             return "No data found matching the query criteria."
         
-        formatted = f"Results: {len(df)} records\n\n"
+        # Limit columns to most relevant ones (reduce token usage)
+        important_cols = ['order_id', 'date', 'category', 'product', 'qty', 'amount', 
+                         'status', 'fulfilled_by', 'ship_city', 'ship_state', 
+                         'size', 'total', 'sales', 'revenue', 'quantity', 'price']
+        available_cols = [c for c in important_cols if c in df.columns]
         
-        # If small dataset, show all rows
-        if len(df) <= 20:
-            formatted += df.to_string(index=False)
+        # If no important cols found, use first 10 columns
+        if not available_cols:
+            available_cols = df.columns[:10].tolist()
+        
+        # Use subset of columns
+        df_subset = df[available_cols] if len(available_cols) < len(df.columns) else df
+        
+        formatted = f"Results: {len(df)} records, {len(df.columns)} columns\n"
+        formatted += f"Columns: {', '.join(df.columns[:15].tolist())}"
+        if len(df.columns) > 15:
+            formatted += f"... (+{len(df.columns) - 15} more)"
+        formatted += "\n\n"
+        
+        # If small dataset, show all rows but limited columns
+        if len(df) <= 10:
+            formatted += df_subset.to_string(index=False, max_cols=10)
         else:
-            # Show summary statistics and sample
-            formatted += "Summary Statistics:\n"
-            formatted += df.describe().to_string()
-            formatted += "\n\nTop 10 Results:\n"
-            formatted += df.head(10).to_string(index=False)
+            # Show summary statistics for numeric columns only
+            numeric_df = df.select_dtypes(include=['number'])
+            if not numeric_df.empty:
+                formatted += "Summary Statistics:\n"
+                formatted += numeric_df.describe().to_string()
+                formatted += "\n\n"
             
-            if len(df) > 10:
-                formatted += f"\n\n(Showing 10 of {len(df)} total records)"
+            formatted += f"Sample Data (first 5 rows):\n"
+            formatted += df_subset.head(5).to_string(index=False, max_cols=10)
+            formatted += f"\n\n(Showing 5 of {len(df)} total records)"
         
         return formatted

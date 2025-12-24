@@ -59,8 +59,8 @@ class Settings(BaseSettings):
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     openai_base_url: str = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
     google_api_key: Optional[str] = os.getenv("GOOGLE_API_KEY")
-    # Use gemini-1.5-flash for higher rate limits (1500/day vs 20/day for 2.0/2.5)
-    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    # Use gemini-2.0-flash as primary (auto-fallback to 1.5-flash-latest on rate limits)
+    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
     
     # Application Settings - Use absolute path for Streamlit Cloud
     data_path: str = os.getenv("DATA_PATH", str(BASE_DIR / "data" / "processed_sales_data.csv"))

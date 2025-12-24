@@ -2,7 +2,7 @@
 Custom LangChain-compatible wrapper for OpenRouter API
 """
 from typing import Any, List, Optional
-from openai import OpenAI
+import requests
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage, SystemMessage
 from langchain_core.outputs import ChatResult, ChatGeneration
@@ -10,7 +10,7 @@ from langchain_core.outputs import ChatResult, ChatGeneration
 
 class OpenRouterLLM(BaseChatModel):
     """
-    Custom ChatModel wrapper for OpenRouter API that properly sets required headers
+    Custom ChatModel wrapper for OpenRouter API using direct HTTP requests
     """
     
     def __init__(self, **kwargs):
@@ -20,16 +20,8 @@ class OpenRouterLLM(BaseChatModel):
         self._model_name = kwargs.get('model', "mistralai/mistral-7b-instruct:free")
         self._temperature = kwargs.get('temperature', 0.1)
         self._max_tokens = kwargs.get('max_tokens', 2000)
-        
-        # Create OpenAI client with OpenRouter headers
-        self._client = OpenAI(
-            base_url=kwargs.get('base_url', 'https://openrouter.ai/api/v1'),
-            api_key=kwargs.get('api_key'),
-            default_headers={
-                "HTTP-Referer": "https://retail-insights.local",
-                "X-Title": "Retail Insights Assistant"
-            }
-        )
+        self._api_key = kwargs.get('api_key')
+        self._base_url = kwargs.get('base_url', 'https://openrouter.ai/api/v1')
     
     def _generate(
         self,
@@ -37,7 +29,7 @@ class OpenRouterLLM(BaseChatModel):
         stop: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        """Generate chat completion"""
+        """Generate chat completion using direct HTTP requests"""
         
         # Convert LangChain messages to OpenAI format
         openai_messages = []
@@ -56,17 +48,37 @@ class OpenRouterLLM(BaseChatModel):
                 "content": msg.content
             })
         
-        # Call OpenAI API
-        response = self._client.chat.completions.create(
-            model=self._model_name,
-            messages=openai_messages,
-            temperature=self._temperature,
-            max_tokens=self._max_tokens,
-            stop=stop
+        # Build request payload
+        payload = {
+            "model": self._model_name,
+            "messages": openai_messages,
+            "temperature": self._temperature,
+            "max_tokens": self._max_tokens,
+        }
+        if stop:
+            payload["stop"] = stop
+        
+        # Make HTTP request directly
+        response = requests.post(
+            f"{self._base_url}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {self._api_key}",
+                "HTTP-Referer": "https://retail-insights.streamlit.app",
+                "X-Title": "Retail Insights Assistant",
+                "Content-Type": "application/json"
+            },
+            json=payload,
+            timeout=60
         )
         
+        if response.status_code != 200:
+            raise Exception(f"OpenRouter API error: {response.status_code} - {response.text}")
+        
+        result = response.json()
+        
         # Convert response to LangChain format
-        message = AIMessage(content=response.choices[0].message.content)
+        content = result['choices'][0]['message']['content']
+        message = AIMessage(content=content)
         generation = ChatGeneration(message=message)
         
         return ChatResult(generations=[generation])
