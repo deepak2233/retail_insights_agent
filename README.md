@@ -1,6 +1,6 @@
 # Retail Insights AI 📊
 
-**Enterprise-Grade Multi-Agent GenAI System for Retail Analytics**
+**Multi-Agent GenAI System for Retail Analytics**
 
 A production-ready AI-powered analytics platform that enables natural language querying of retail sales data, automated insight generation, and scalable analytics.
 
