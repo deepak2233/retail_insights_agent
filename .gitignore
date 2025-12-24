@@ -1,0 +1,44 @@
+# Environment
+.env
+*.env.local
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+
+# Data files (large)
+data/*.csv
+data/*.parquet
+data/*.duckdb
+data/*.duckdb.wal
+data/*.duckdb.tmp
+data/*.zip
+data/Sales Dataset/
+data/__MACOSX/
+
+# Logs
+*.log
+streamlit*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Backup files
+*_backup.py
+*_old.py
+
+# Screenshots (optional - remove if you want them)
+screenshots/
+
+# Misc
+.DS_Store
+Thumbs.db
