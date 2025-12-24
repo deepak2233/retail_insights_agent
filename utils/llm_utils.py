@@ -12,7 +12,7 @@ except ImportError:
     GEMINI_AVAILABLE = False
     ChatGoogleGenerativeAI = None
 
-from config import settings
+from config import settings, get_secret
 
 
 def get_llm(temperature: Optional[float] = None, model: Optional[str] = None):
@@ -28,11 +28,15 @@ def get_llm(temperature: Optional[float] = None, model: Optional[str] = None):
     """
     temp = temperature if temperature is not None else settings.temperature
     
-    if settings.llm_provider == "openai":
+    # Get provider dynamically (supports Streamlit secrets)
+    provider = get_secret("LLM_PROVIDER", settings.llm_provider)
+    
+    if provider == "openai":
         from openai import OpenAI
         
-        model_name = model or settings.openai_model
-        base_url = getattr(settings, 'openai_base_url', None)
+        model_name = model or get_secret("OPENAI_MODEL", settings.openai_model)
+        base_url = get_secret("OPENAI_BASE_URL", settings.openai_base_url)
+        api_key = get_secret("OPENAI_API_KEY", settings.openai_api_key)
         
         # For OpenRouter, use custom wrapper that properly sets headers
         if base_url and 'openrouter' in base_url:
@@ -42,7 +46,7 @@ def get_llm(temperature: Optional[float] = None, model: Optional[str] = None):
                 model=model_name,
                 temperature=temp,
                 max_tokens=settings.max_tokens,
-                api_key=settings.openai_api_key,
+                api_key=api_key,
                 base_url=base_url
             )
         else:
@@ -50,23 +54,31 @@ def get_llm(temperature: Optional[float] = None, model: Optional[str] = None):
                 model=model_name,
                 temperature=temp,
                 max_tokens=settings.max_tokens,
-                api_key=settings.openai_api_key,
+                api_key=api_key,
                 base_url=base_url if base_url else None
             )
-    elif settings.llm_provider == "google":
+    elif provider == "google":
         if not GEMINI_AVAILABLE:
             raise ImportError(
                 "Google Gemini is not available. Install with: pip install langchain-google-genai"
             )
-        model_name = model or settings.gemini_model
+        # Get API key dynamically from Streamlit secrets or environment
+        api_key = get_secret("GOOGLE_API_KEY")
+        model_name = model or get_secret("GEMINI_MODEL", settings.gemini_model)
+        
+        if not api_key:
+            raise ValueError(
+                "Google API key not found. Set GOOGLE_API_KEY in environment or Streamlit secrets."
+            )
+        
         return ChatGoogleGenerativeAI(
             model=model_name,
             temperature=temp,
             max_output_tokens=settings.max_tokens,
-            google_api_key=settings.google_api_key
+            google_api_key=api_key
         )
     else:
-        raise ValueError(f"Unsupported LLM provider: {settings.llm_provider}")
+        raise ValueError(f"Unsupported LLM provider: {provider}")
 
 
 def create_prompt_template(role: str, instructions: str) -> str:
