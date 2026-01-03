@@ -362,7 +362,7 @@ def render_ai_chat():
             
             # AI Message
             st.markdown(f"""
-            <div class="message-meta">{msg['time']} • AI Assistant ({msg['conf']:.0f}% confidence)</div>
+            <div class="message-meta">{msg['time']} | AI Assistant ({msg['conf']:.0f}% confidence)</div>
             <div class="message-bubble ai-message">
                 {msg['a']}
             </div>

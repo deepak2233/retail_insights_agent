@@ -1,4 +1,4 @@
-# Retail Insights AI 📊
+# Retail Insights AI
 
 **Multi-Agent GenAI System for Retail Analytics**
 
@@ -6,18 +6,18 @@ A production-ready AI-powered analytics platform that enables natural language q
 
 ---
 
-## 🎯 Features
+## Features
 
-- **🤖 AI-Powered Q&A** - Ask questions in natural language
-- **📊 Interactive Analytics** - Visual dashboards with Plotly charts
-- **📁 Data Upload** - Upload your own CSV data
-- **📈 Evaluation Metrics** - Monitor AI quality and performance
-- **📝 Auto Reports** - Generate executive summaries
-- **🧠 Multi-Agent System** - 4 specialized AI agents with LangGraph
+- **AI-Powered Q&A** - Ask questions in natural language
+- **Interactive Analytics** - Visual dashboards with Plotly charts
+- **Data Upload** - Upload your own CSV data
+- **Evaluation Metrics** - Monitor AI quality and performance
+- **Auto Reports** - Generate executive summaries
+- **Multi-Agent System** - 4 specialized AI agents with LangGraph
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Option 1: Docker (Recommended)
 ```bash
@@ -93,7 +93,7 @@ User Question → Query Agent → Data Extraction → Validation → Response Ge
 
 ---
 
-## 📊 Evaluation Metrics
+## Evaluation Metrics
 
 | Metric | Description |
 |--------|-------------|
