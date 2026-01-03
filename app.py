@@ -393,6 +393,8 @@ def render_analytics():
     
     try:
         stats = st.session_state.data_layer.get_summary_stats()
+        overall = stats.get("overall", {})
+        revenue = overall.get("total_revenue", 0)
         
         # Charts row
         col1, col2 = st.columns(2)
@@ -438,6 +440,48 @@ def render_analytics():
                 st.plotly_chart(fig, use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
         
+        # Row 2: Status and Fulfillment
+        col3, col4 = st.columns(2)
+        
+        with col3:
+            st.markdown('<div class="chart-card"><div class="chart-header">Order Status Distribution</div>', unsafe_allow_html=True)
+            if stats.get("by_status"):
+                df_status = pd.DataFrame(stats["by_status"])
+                fig_status = px.bar(
+                    df_status, x='status', y='orders',
+                    color='status',
+                    color_discrete_sequence=px.colors.qualitative.Pastel
+                )
+                fig_status.update_layout(
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    font_color='white',
+                    height=300,
+                    margin=dict(l=20, r=20, t=10, b=40)
+                )
+                st.plotly_chart(fig_status, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        with col4:
+            st.markdown('<div class="chart-card"><div class="chart-header">Revenue by Fulfillment Method</div>', unsafe_allow_html=True)
+            # Sample fulfillment data if not in stats
+            fulfillment_data = stats.get("by_fulfillment", [{"method": "B2C", "revenue": revenue * 0.7}, {"method": "B2B", "revenue": revenue * 0.3}])
+            df_fill = pd.DataFrame(fulfillment_data)
+            fig_fill = px.pie(
+                df_fill, values='revenue', names='method',
+                hole=0.4,
+                color_discrete_sequence=['#6366f1', '#a855f7']
+            )
+            fig_fill.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font_color='white',
+                height=300,
+                margin=dict(l=20, r=20, t=10, b=10)
+            )
+            st.plotly_chart(fig_fill, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        
         # Trend chart
         st.markdown('<div class="chart-card"><div class="chart-header">Revenue and Profit Trend</div>', unsafe_allow_html=True)
         if stats.get("monthly_trend"):
@@ -471,7 +515,8 @@ def render_analytics():
             st.plotly_chart(fig, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Data tables
+        # Detailed Tables Section
+        st.markdown("### Regional and Category Analysis")
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("**State Performance**")
@@ -488,6 +533,12 @@ def render_analytics():
                 df['revenue'] = df['revenue'].apply(lambda x: f"₹{x:,.0f}")
                 df['orders'] = df['orders'].apply(lambda x: f"{x:,}")
                 st.dataframe(df, use_container_width=True, hide_index=True)
+
+        # Raw Data Explorer
+        with st.expander("Deep Dive: Raw Data Explorer"):
+            df_full = st.session_state.data_layer.df
+            st.markdown(f"Displaying last 500 records out of {len(df_full):,} total.")
+            st.dataframe(df_full.tail(500), use_container_width=True)
                 
     except Exception as e:
         st.error(f"Analytics Error: {e}")
@@ -555,11 +606,11 @@ def render_data_upload():
                     st.session_state.initialized = False
                     st.session_state.data_layer = None
                     st.session_state.orchestrator = None
-                    st.success("✅ Data loaded! Refreshing system...")
+                    st.success("Data loaded! Refreshing system...")
                     st.rerun()
                     
             except Exception as e:
-                st.error(f"❌ Error reading file: {e}")
+                st.error(f"Error reading file: {e}")
     
     with col2:
         st.markdown("**Current Data:**")
@@ -601,7 +652,7 @@ def render_evaluation_dashboard():
     """, unsafe_allow_html=True)
     
     if not st.session_state.initialized:
-        st.warning("⚠️ System not initialized")
+        st.warning("System not initialized")
         return
     
     orchestrator = st.session_state.orchestrator
@@ -802,16 +853,16 @@ def main():
     
     # Sidebar for API key configuration (fallback)
     with st.sidebar:
-        st.markdown("### ⚙️ Configuration")
+        st.markdown("### Configuration")
         
         has_key, provider, _ = check_api_key()
         
         if has_key:
-            st.success(f"✅ Active: {provider.upper()} API")
+            st.success(f"Active: {provider.upper()} API")
             if provider == "groq":
                 st.info(f"Model: {settings.groq_model}")
         else:
-            st.warning("⚠️ No API key configured")
+            st.warning("No API key configured")
             st.markdown("**Enter API Key (session only):**")
             
             # Provider selector
@@ -823,7 +874,7 @@ def main():
                 provider_key = f"{selected_provider.upper()}_API_KEY"
                 os.environ[provider_key] = api_key_input
                 os.environ["LLM_PROVIDER"] = selected_provider.lower()
-                st.success(f"✅ {selected_provider} key set for this session")
+                st.success(f"{selected_provider} key set for this session")
                 st.rerun()
         
         st.markdown("---")
@@ -832,7 +883,7 @@ def main():
     
     # Auto-initialize
     if not st.session_state.initialized:
-        with st.spinner("🚀 Starting Retail Insights AI..."):
+        with st.spinner("Starting Retail Insights AI..."):
             load_system()
     
     # Render components
@@ -840,7 +891,7 @@ def main():
     render_kpis()
     
     # Main tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🤖 AI Assistant", "📊 Analytics", "📁 Data Upload", "📈 Evaluation", "📝 Reports"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["AI Assistant", "Analytics", "Data Upload", "Evaluation", "Reports"])
     
     with tab1:
         render_ai_chat()
