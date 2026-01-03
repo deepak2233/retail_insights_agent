@@ -526,7 +526,7 @@ def render_data_upload():
             help="Upload a CSV file with your retail data"
         )
         
-                if uploaded_file is not None:
+        if uploaded_file is not None:
             try:
                 df = pd.read_csv(uploaded_file)
                 st.success(f"Loaded {len(df):,} rows, {len(df.columns)} columns")
@@ -574,7 +574,7 @@ def render_data_upload():
         
         st.markdown("---")
         st.markdown("**Sample Data:**")
-        if st.button("Download Sample CSV")::
+        if st.button("Download Sample CSV"):
             sample_data = """order_id,date,category,state,amount,quantity,status
 ORD001,2024-01-15,Electronics,Maharashtra,15000,2,Shipped
 ORD002,2024-01-16,Clothing,Karnataka,3500,3,Delivered
