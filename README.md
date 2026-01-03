@@ -48,7 +48,6 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-**Access the app at:** http://localhost:8501
 
 ---
 
