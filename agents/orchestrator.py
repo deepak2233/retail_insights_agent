@@ -9,6 +9,7 @@ from agents.query_agent import QueryResolutionAgent, AgentState
 from agents.extraction_agent import DataExtractionAgent
 from agents.validation_agent import ValidationAgent
 from agents.response_agent import ResponseAgent
+from agents.router_agent import RouterAgent
 
 # Import new enhancement modules
 from utils.memory import get_memory, ConversationMemory
@@ -32,6 +33,7 @@ class AgentOrchestrator:
         self.extraction_agent = DataExtractionAgent()
         self.validation_agent = ValidationAgent()
         self.response_agent = ResponseAgent()
+        self.router_agent = RouterAgent()
         
         # Initialize enhancement modules
         self.memory: ConversationMemory = get_memory() if enable_memory else None
@@ -57,6 +59,7 @@ class AgentOrchestrator:
         
         # Add nodes (agents) with enhanced processing
         workflow.add_node("preprocess", self._preprocess_node)
+        workflow.add_node("route_intent", self._route_intent_node)
         workflow.add_node("resolve_query", self._resolve_query_node)
         workflow.add_node("extract_data", self._extract_data_node)
         workflow.add_node("validate", self._validate_node)
@@ -74,8 +77,17 @@ class AgentOrchestrator:
             "preprocess",
             self._route_after_preprocess,
             {
-                "resolve": "resolve_query",
+                "resolve": "route_intent",
                 "edge_case": "handle_edge_case"
+            }
+        )
+        
+        workflow.add_conditional_edges(
+            "route_intent",
+            self._route_based_on_intent,
+            {
+                "analytics": "resolve_query",
+                "direct_response": "postprocess"
             }
         )
         
@@ -117,7 +129,7 @@ class AgentOrchestrator:
     
     def _preprocess_node(self, state: AgentState) -> Dict[str, Any]:
         """Node: Preprocess question with memory and edge case handling"""
-        print("\n🔍 Preprocessing...")
+        print("\n[INFO] Preprocessing...")
         question = state["question"]
         
         # Get conversation context from memory
@@ -127,14 +139,14 @@ class AgentOrchestrator:
             # Resolve references (e.g., "it", "them")
             resolved_question = self.memory.resolve_reference(question)
             if resolved_question != question:
-                print(f"   📝 Resolved reference: {resolved_question}")
+                print(f"   [INFO] Resolved reference: {resolved_question}")
                 question = resolved_question
         
         # Check for edge cases
         edge_result = self.edge_case_handler.handle(question)
         
         if edge_result.is_edge_case:
-            print(f"   ⚡ Edge case detected: {edge_result.edge_case_type}")
+            print(f"   [EDGE] Edge case detected: {edge_result.edge_case_type}")
             
             if edge_result.requires_clarification:
                 return {
@@ -155,9 +167,40 @@ class AgentOrchestrator:
             "edge_case_handled": False
         }
     
+    def _route_intent_node(self, state: AgentState) -> Dict[str, Any]:
+        """Node: Classify intent and decide if we need more processing"""
+        print("\n[INFO] Agent 0: Intent Routing")
+        question = state["question"]
+        
+        # Check for duplicates in memory first
+        if self.memory and self.memory.is_duplicate(question):
+            print("   [INFO] Duplicate query detected, using previous result")
+            last_turn = self.memory.short_term[-1]
+            return {
+                **state,
+                "intent": "duplicate",
+                "final_answer": last_turn["answer"]
+            }
+            
+        result = self.router_agent.classify(question)
+        print(f"   [INTENT] Intent: {result.get('intent', 'analytics')}")
+        
+        return {
+            **state,
+            "intent": result.get("intent", "analytics"),
+            "final_answer": result.get("response_if_not_analytics", "")
+        }
+        
+    def _route_based_on_intent(self, state: AgentState) -> str:
+        """Route based on classified intent"""
+        intent = state.get("intent", "analytics")
+        if intent == "analytics":
+            return "analytics"
+        return "direct_response"
+    
     def _resolve_query_node(self, state: AgentState) -> Dict[str, Any]:
         """Node: Resolve natural language query to SQL with retry"""
-        print("\n🔄 Agent 1: Query Resolution")
+        print("\n[INFO] Agent 1: Query Resolution")
         question = state["question"]
         context = state.get("conversation_context")
         error_history = state.get("_error_history", [])
@@ -207,7 +250,7 @@ class AgentOrchestrator:
     
     def _extract_facts_node(self, state: AgentState) -> Dict[str, Any]:
         """Node: Extract verifiable facts from data for grounded response"""
-        print("\n🔄 Fact Extraction (Hallucination Prevention)")
+        print("\n[INFO] Fact Extraction")
         
         query_result = state.get("query_result", {})
         df = query_result.get("dataframe")
@@ -216,7 +259,7 @@ class AgentOrchestrator:
         facts = []
         if df is not None and not df.empty:
             facts = self.fact_extractor.extract_facts(df, query_intent)
-            print(f"   ✅ Extracted {len(facts)} verifiable facts")
+            print(f"   [INFO] Extracted {len(facts)} verifiable facts")
         
         return {
             **state,
@@ -225,7 +268,7 @@ class AgentOrchestrator:
     
     def _generate_response_node(self, state: AgentState) -> Dict[str, Any]:
         """Node: Generate grounded natural language response"""
-        print("\n🔄 Agent 4: Response Generation")
+        print("\n[INFO] Agent 4: Response Generation")
         
         # Generate response using standard agent
         result = self.response_agent.generate_response(state)
@@ -239,11 +282,11 @@ class AgentOrchestrator:
             )
             
             if validation_result["issues"]:
-                print(f"   ⚠️  Found {len(validation_result['issues'])} potential issues in response")
+                print(f"   [WARN] Found {len(validation_result['issues'])} potential issues in response")
             
             # Add confidence indicator to response
             if validation_result["confidence"] < 0.8:
-                result["final_answer"] += f"\n\n*Note: Some insights may require verification (confidence: {validation_result['confidence']*100:.0f}%)*"
+                result["final_answer"] += f"\n\nNote: Some insights may require verification (confidence: {validation_result['confidence']*100:.0f}%)"
         
         return result
     
@@ -266,7 +309,7 @@ class AgentOrchestrator:
                     "confidence": state.get("confidence_scores", {}).get("overall", 0)
                 }
             )
-            print(f"   💾 Saved to conversation memory")
+            print(f"   [INFO] Saved to conversation memory")
         
         # Run evaluation
         if self.evaluation and state.get("final_answer"):
@@ -281,13 +324,13 @@ class AgentOrchestrator:
                     response=state["final_answer"],
                     facts=state.get("facts", [])
                 )
-                print(f"   📊 Evaluation: accuracy={eval_result.accuracy_score:.2f}, faithfulness={eval_result.faithfulness_score:.2f}, overall={eval_result.overall_score:.2f}")
+                print(f"   [EVAL] Evaluation: accuracy={eval_result.accuracy_score:.2f}, faithfulness={eval_result.faithfulness_score:.2f}, overall={eval_result.overall_score:.2f}")
         
         return state
     
     def _handle_error_node(self, state: AgentState) -> Dict[str, Any]:
         """Node: Handle errors gracefully with helpful suggestions"""
-        print("\n⚠️  Error Handler")
+        print("\n[ERROR] Error Handler")
         error = state.get("error", "Unknown error occurred")
         
         # Provide more helpful error messages
@@ -318,7 +361,7 @@ class AgentOrchestrator:
     
     def _handle_edge_case_node(self, state: AgentState) -> Dict[str, Any]:
         """Node: Handle edge cases that were flagged during preprocessing"""
-        print("\n⚡ Edge Case Handler")
+        print("\n[INFO] Edge Case Handler")
         # Response was already set in preprocess
         return state
     
@@ -344,7 +387,7 @@ class AgentOrchestrator:
         if state.get("error"):
             retry_count = state.get("_retry_count", 0)
             if self.retry_on_error and retry_count < self.max_retries:
-                print(f"   🔄 Retrying... (attempt {retry_count + 1}/{self.max_retries})")
+                print(f"   [INFO] Retrying... (attempt {retry_count + 1}/{self.max_retries})")
                 return "retry"
             return "error"
         return "validate"
@@ -367,7 +410,7 @@ class AgentOrchestrator:
         """
         try:
             print(f"\n{'='*80}")
-            print(f"📝 Question: {question}")
+            print(f"INFO: Question: {question}")
             print(f"{'='*80}")
             
             # Initialize state with new fields
@@ -388,7 +431,7 @@ class AgentOrchestrator:
             final_state = self.graph.invoke(initial_state)
             
             print(f"\n{'='*80}")
-            print("✅ Processing Complete")
+            print("INFO: Processing Complete")
             print(f"{'='*80}\n")
             
             return final_state["final_answer"]
@@ -414,7 +457,7 @@ class AgentOrchestrator:
         """Clear conversation memory"""
         if self.memory:
             self.memory.clear()
-            print("🧹 Memory cleared")
+            print("[INFO] Memory cleared")
     
     def generate_summary(self) -> str:
         """
@@ -424,7 +467,7 @@ class AgentOrchestrator:
             Summary report
         """
         try:
-            print("\n📊 Generating Data Summary...")
+            print("\n[INFO] Generating Data Summary...")
             
             summary_questions = [
                 "What is the total revenue?",

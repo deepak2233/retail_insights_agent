@@ -218,6 +218,22 @@ def get_llm(temperature: Optional[float] = None, model: Optional[str] = None, us
                 max_output_tokens=settings.max_tokens,
                 google_api_key=api_key
             )
+    elif provider == "groq":
+        model_name = model or get_secret("GROQ_MODEL", settings.groq_model)
+        api_key = get_secret("GROQ_API_KEY", settings.groq_api_key)
+        
+        if not api_key:
+            raise ValueError(
+                "Groq API key not found. Set GROQ_API_KEY in environment or Streamlit secrets."
+            )
+            
+        return ChatOpenAI(
+            model=model_name,
+            temperature=temp,
+            max_tokens=settings.max_tokens,
+            api_key=api_key,
+            base_url="https://api.groq.com/openai/v1"
+        )
     else:
         raise ValueError(f"Unsupported LLM provider: {provider}")
 

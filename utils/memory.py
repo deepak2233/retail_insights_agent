@@ -56,6 +56,22 @@ class ConversationMemory:
         if entities:
             self._update_entity_memory(entities)
     
+    def is_duplicate(self, question: str, threshold: float = 0.95) -> bool:
+        """Check if the question is a duplicate of the last one"""
+        if not self.short_term:
+            return False
+        
+        last_q = self.short_term[-1]["question"]
+        similarity = re.sub(r'[^\w\s]', '', question.lower()) == re.sub(r'[^\w\s]', '', last_q.lower())
+        
+        if similarity:
+            return True
+        
+        # Fuzzy match for very similar queries
+        from difflib import SequenceMatcher
+        ratio = SequenceMatcher(None, question.lower(), last_q.lower()).ratio()
+        return ratio >= threshold
+
     def _update_entity_memory(self, entities: Dict):
         """Update remembered entities from latest query"""
         for key, value in entities.items():
@@ -65,15 +81,9 @@ class ConversationMemory:
                     "last_mentioned": datetime.now().isoformat()
                 }
     
-    def get_recent_context(self, n_turns: int = 3) -> str:
+    def get_recent_context(self, n_turns: int = 3, max_chars: int = 2000) -> str:
         """
-        Get recent conversation context as formatted string
-        
-        Args:
-            n_turns: Number of recent turns to include
-            
-        Returns:
-            Formatted conversation history
+        Get recent conversation context with character limit optimization
         """
         if not self.short_term:
             return "No previous conversation context."
@@ -81,11 +91,21 @@ class ConversationMemory:
         recent = list(self.short_term)[-n_turns:]
         
         context_parts = ["Recent conversation:"]
-        for turn in recent:
-            context_parts.append(f"User: {turn['question']}")
-            # Truncate answer for context
-            short_answer = turn['answer'][:200] + "..." if len(turn['answer']) > 200 else turn['answer']
-            context_parts.append(f"Assistant: {short_answer}")
+        current_len = 0
+        
+        # Process in reverse to prioritize most recent
+        for turn in reversed(recent):
+            user_msg = f"User: {turn['question']}"
+            # Truncate answer to keep context concise
+            short_answer = turn['answer'][:300] + "..." if len(turn['answer']) > 300 else turn['answer']
+            ai_msg = f"Assistant: {short_answer}"
+            
+            turn_text = f"{user_msg}\n{ai_msg}"
+            if current_len + len(turn_text) > max_chars:
+                break
+                
+            context_parts.insert(1, turn_text)
+            current_len += len(turn_text)
         
         return "\n".join(context_parts)
     

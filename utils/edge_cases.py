@@ -227,7 +227,7 @@ class EdgeCaseHandler:
                     break
         
         if corrections:
-            correction_msg = ", ".join([f"'{c[0]}' → '{c[1]}'" for c in corrections])
+            correction_msg = ", ".join([f"'{c[0]}' -> '{c[1]}'" for c in corrections])
             return EdgeCaseResult(
                 is_edge_case=True,
                 edge_case_type="typo_correction",

@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     # Use gemini-2.0-flash as primary (auto-fallback to 1.5-flash-latest on rate limits)
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
     
+    # Groq Configuration
+    groq_api_key: Optional[str] = os.getenv("GROQ_API_KEY")
+    groq_model: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    
     # Application Settings - Use absolute path for Streamlit Cloud
     data_path: str = os.getenv("DATA_PATH", str(BASE_DIR / "data" / "processed_sales_data.csv"))
     max_context_length: int = int(os.getenv("MAX_CONTEXT_LENGTH", "4000"))
